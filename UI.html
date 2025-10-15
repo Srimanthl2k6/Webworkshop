@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Grade Manager</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #4a4e69;
+            margin-bottom: 2rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+        .form-section, .data-section {
+            padding: 1.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+        }
+        h2 {
+            margin-top: 0;
+            color: #6c757d;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        button, .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+        button:hover, .btn:hover {
+            background-color: #0056b3;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.9rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background-color: #f1f3f5;
+            font-weight: 600;
+        }
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        .search-box {
+            width: 100%;
+        }
+        #message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+        }
+        .message-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .message-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+         @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Student Grade Manager</h1>
+        <div class="grid">
+            <div class="form-section">
+                <h2>Add Student</h2>
+                <form id="add-student-form">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="roll">Roll Number</label>
+                        <input type="text" id="roll" name="roll" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="marks">Marks</label>
+                        <input type="number" id="marks" name="marks" required>
+                    </div>
+                    <button type="submit">Add Student</button>
+                </form>
+
+                <div class="action-buttons">
+                    <a href="http://localhost:3000/export" class="btn" download>Export CSV</a>
+                    <button id="import-btn">Import CSV</button>
+                    <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+                </div>
+                 <div id="message"></div>
+            </div>
+            <div class="data-section">
+                <h2>All Students</h2>
+                 <div class="form-group">
+                    <input type="text" id="search" class="search-box" placeholder="Search by name...">
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Roll Number</th>
+                            <th>Marks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-table-body">
+                        <!-- Student data will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            const API_URL = 'http://localhost:3000';
+
+            // --- Display Messages ---
+            function showMessage(text, type) {
+                const $message = $('#message');
+                $message.text(text)
+                        .removeClass('message-success message-error')
+                        .addClass(`message-${type}`)
+                        .fadeIn();
+                setTimeout(() => $message.fadeOut(), 3000);
+            }
+
+            // --- Fetch and Display Students ---
+            function fetchStudents() {
+                $.ajax({
+                    url: `${API_URL}/students`,
+                    method: 'GET',
+                    success: function(students) {
+                        const $tableBody = $('#student-table-body');
+                        $tableBody.empty();
+                        if(students.length === 0) {
+                             $tableBody.append('<tr><td colspan="3" style="text-align:center;">No students found.</td></tr>');
+                        } else {
+                            students.forEach(student => {
+                                $tableBody.append(
+                                    `<tr>
+                                        <td>${student.name || ''}</td>
+                                        <td>${student.roll || ''}</td>
+                                        <td>${student.marks || ''}</td>
+                                    </tr>`
+                                );
+                            });
+                        }
+                    },
+                    error: function() {
+                        showMessage('Error fetching student data.', 'error');
+                    }
+                });
+            }
+
+            // --- Initial Load ---
+            fetchStudents();
+
+            // --- Add Student ---
+            $('#add-student-form').on('submit', function(e) {
+                e.preventDefault();
+                const studentData = $(this).serialize();
+                $.ajax({
+                    url: `${API_URL}/add`,
+                    method: 'POST',
+                    data: studentData,
+                    success: function(response) {
+                        showMessage(response.message, 'success');
+                        fetchStudents();
+                        $('#add-student-form')[0].reset();
+                    },
+                    error: function() {
+                        showMessage('Error adding student.', 'error');
+                    }
+                });
+            });
+
+            // --- Search Students ---
+            $('#search').on('keyup', function() {
+                const query = $(this).val();
+                if (query.length === 0) {
+                    fetchStudents();
+                    return;
+                }
+                $.ajax({
+                    url: `${API_URL}/search?name=${query}`,
+                    method: 'GET',
+                    success: function(students) {
+                        const $tableBody = $('#student-table-body');
+                        $tableBody.empty();
+                         if(students.length === 0) {
+                             $tableBody.append('<tr><td colspan="3" style="text-align:center;">No matching students found.</td></tr>');
+                        } else {
+                            students.forEach(student => {
+                                $tableBody.append(
+                                    `<tr>
+                                        <td>${student.name}</td>
+                                        <td>${student.roll}</td>
+                                        <td>${student.marks}</td>
+                                    </tr>`
+                                );
+                            });
+                        }
+                    },
+                     error: function() {
+                        // Silently fail or add minimal feedback
+                        console.error('Search request failed');
+                    }
+                });
+            });
+            
+            // --- Import CSV ---
+            $('#import-btn').on('click', function() {
+                $('#csv-file-input').click();
+            });
+
+            $('#csv-file-input').on('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                $.ajax({
+                    url: `${API_URL}/upload`,
+                    method: 'POST',
+                    data: file,
+                    processData: false,
+                    contentType: 'text/csv',
+                    success: function(response) {
+                        showMessage(response.message, 'success');
+                        fetchStudents();
+                    },
+                    error: function() {
+                        showMessage('Error uploading CSV file.', 'error');
+                    }
+                });
+                // Reset file input to allow uploading the same file again
+                 $(this).val('');
+            });
+        });
+    </script>
+</body>
+</html>
